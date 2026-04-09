@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+chromadb
+rank_bm25
+sentence-transformers
+pdfplumber
+pydantic
+httpx
+python-dotenv

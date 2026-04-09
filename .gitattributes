@@ -1,0 +1,2 @@
+data/chroma_db/** filter=lfs diff=lfs merge=lfs -text
+data/bm25_index/** filter=lfs diff=lfs merge=lfs -text

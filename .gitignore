@@ -1,0 +1,30 @@
+# --- System / IDE ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- Frontend (Node/React/Bun) ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*
+!.env.example
+
+# --- Backend (Python) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.python-version
+
+# --- Data & Large Files (User Request) ---
+# We ignore the raw PDFs but KEEP the processed indices
+data/raw_resumes_clean/
+*.log
+
+# --- Docker ---
+.dockerignore

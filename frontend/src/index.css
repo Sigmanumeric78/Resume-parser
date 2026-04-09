@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+    --color-gold: #d4af37;
+    --color-gold-light: #f4df4e;
+    --color-gold-dark: #996515;
+    --color-gold-glow: rgba(212, 175, 55, 0.5);
+    --shadow-raised: 0 10px 30px -5px rgba(212, 175, 55, 0.4);
+}
+
+@layer base {
+    :root {
+        --color-bg-primary: #ffffff;
+        --color-bg-header: #f9f7f2;
+        --color-text-main: #1a1a1a;
+        --color-text-muted: #4a4a4a;
+    }
+
+    .dark {
+        --color-bg-primary: #000000;
+        --color-bg-header: #121212;
+        --color-text-main: #f5f5f5;
+        --color-text-muted: #a1a1a1;
+    }
+
+    body {
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-main);
+        @apply transition-colors duration-500 ease-in-out antialiased;
+    }
+
+    @keyframes pulse-gold {
+        0%,
+        100% {
+            box-shadow: 0 0 10px 0 rgba(212, 175, 55, 0.4);
+            border-color: rgba(212, 175, 55, 0.6);
+        }
+        50% {
+            box-shadow: 0 0 25px 10px rgba(212, 175, 55, 0.6);
+            border-color: rgba(212, 175, 55, 1);
+        }
+    }
+}
+
+@layer utilities {
+    .animate-pulse-gold {
+        animation: pulse-gold 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .raised-hover {
+        @apply transition-all duration-300 ease-out border-2 shadow-sm bg-white dark:bg-zinc-900;
+        &:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: var(--shadow-raised);
+        }
+    }
+
+    .gold-gradient {
+        background: linear-gradient(
+            135deg,
+            var(--color-gold-dark) 0%,
+            var(--color-gold) 50%,
+            var(--color-gold-light) 100%
+        );
+    }
+}
