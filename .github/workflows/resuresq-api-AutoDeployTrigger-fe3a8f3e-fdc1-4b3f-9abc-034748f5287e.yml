@@ -1,48 +1,33 @@
-name: Trigger auto deployment for resuresq-api
+steps:
+  - name: Checkout to the branch
+    uses: actions/checkout@v4 # Upgraded to v4
+    with:
+      lfs: true
 
-# When this action will be executed
-on:
-  # Automatically trigger it when detected changes in repo
-  push:
-    branches: [main]
-    paths:
-      - "**"
-      - ".github/workflows/resuresq-api-AutoDeployTrigger-fe3a8f3e-fdc1-4b3f-9abc-034748f5287e.yml"
+  # --- NEW STEP: FREE DISK SPACE ---
+  - name: Free Disk Space
+    run: |
+      sudo rm -rf /usr/share/dotnet
+      sudo rm -rf /opt/ghc
+      sudo rm -rf "/usr/local/share/boost"
+      sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-  # Allow manual trigger
-  workflow_dispatch:
+  - name: Azure Login
+    uses: azure/login@v2
+    with:
+      client-id: ${{ secrets.RESURESQAPI_AZURE_CLIENT_ID }}
+      tenant-id: ${{ secrets.RESURESQAPI_AZURE_TENANT_ID }}
+      subscription-id: ${{ secrets.RESURESQAPI_AZURE_SUBSCRIPTION_ID }}
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write #This is required for requesting the OIDC JWT Token
-      contents: read #Required when GH token is used to authenticate with private repo
-
-    steps:
-      - name: Checkout to the branch
-        uses: actions/checkout@v2
-        with:
-          lfs: true
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.RESURESQAPI_AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.RESURESQAPI_AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.RESURESQAPI_AZURE_SUBSCRIPTION_ID }}
-
-      - name: Build and push container image to registry
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          appSourcePath: ${{ github.workspace }}
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
-          registryUrl: resuresqreg.azurecr.io
-          registryUsername: ${{ secrets.RESURESQAPI_REGISTRY_USERNAME }}
-          registryPassword: ${{ secrets.RESURESQAPI_REGISTRY_PASSWORD }}
-          containerAppName: resuresq-api
-          resourceGroup: resumeresq-rg
-          imageToBuild: resuresqreg.azurecr.io/resuresq-api:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
+  - name: Build and push container image to registry
+    uses: azure/container-apps-deploy-action@v2
+    with:
+      appSourcePath: ${{ github.workspace }}
+      # --- FIX: EXPLICITLY USE YOUR DOCKERFILE ---
+      dockerFilePath: backend/Dockerfile
+      registryUrl: resuresqreg.azurecr.io
+      registryUsername: ${{ secrets.RESURESQAPI_REGISTRY_USERNAME }}
+      registryPassword: ${{ secrets.RESURESQAPI_REGISTRY_PASSWORD }}
+      containerAppName: resuresq-api
+      resourceGroup: resumeresq-rg
+      imageToBuild: resuresqreg.azurecr.io/backend:${{ github.sha }}
