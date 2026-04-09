@@ -15,10 +15,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: "http://backend:8000/api"
+        VITE_API_URL: "https://api.resuresq.app"
     ports:
       - "80:80"
     environment:
-      VITE_API_URL: "http://backend:8000/api"
+      VITE_API_URL: "https://api.resuresq.app"
     depends_on:
       - backend
