@@ -1,33 +1,49 @@
-steps:
-  - name: Checkout to the branch
-    uses: actions/checkout@v4 # Upgraded to v4
-    with:
-      lfs: true
+name: Trigger auto deployment for resuresq-api
 
-  # --- NEW STEP: FREE DISK SPACE ---
-  - name: Free Disk Space
-    run: |
-      sudo rm -rf /usr/share/dotnet
-      sudo rm -rf /opt/ghc
-      sudo rm -rf "/usr/local/share/boost"
-      sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**"
 
-  - name: Azure Login
-    uses: azure/login@v2
-    with:
-      client-id: ${{ secrets.RESURESQAPI_AZURE_CLIENT_ID }}
-      tenant-id: ${{ secrets.RESURESQAPI_AZURE_TENANT_ID }}
-      subscription-id: ${{ secrets.RESURESQAPI_AZURE_SUBSCRIPTION_ID }}
+  workflow_dispatch:
 
-  - name: Build and push container image to registry
-    uses: azure/container-apps-deploy-action@v2
-    with:
-      appSourcePath: ${{ github.workspace }}
-      # --- FIX: EXPLICITLY USE YOUR DOCKERFILE ---
-      dockerFilePath: backend/Dockerfile
-      registryUrl: resuresqreg.azurecr.io
-      registryUsername: ${{ secrets.RESURESQAPI_REGISTRY_USERNAME }}
-      registryPassword: ${{ secrets.RESURESQAPI_REGISTRY_PASSWORD }}
-      containerAppName: resuresq-api
-      resourceGroup: resumeresq-rg
-      imageToBuild: resuresqreg.azurecr.io/backend:${{ github.sha }}
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # --- CRITICAL: FREE DISK SPACE FOR TORCH ---
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.RESURESQAPI_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.RESURESQAPI_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.RESURESQAPI_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}
+          dockerFilePath: backend/Dockerfile
+          registryUrl: resuresqreg.azurecr.io
+          registryUsername: ${{ secrets.RESURESQAPI_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.RESURESQAPI_REGISTRY_PASSWORD }}
+          containerAppName: resuresq-api
+          resourceGroup: resumeresq-rg
+          imageToBuild: resuresqreg.azurecr.io/backend:${{ github.sha }}
