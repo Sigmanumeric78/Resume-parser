@@ -76,12 +76,21 @@ if os.path.isdir(_assets_dir):
 if os.path.isdir(_fonts_dir):
     app.mount("/fonts", StaticFiles(directory=_fonts_dir), name="fonts")
 
+# --- THE GOLD-TIER CORS SETTINGS ---
+origins = [
+    "https://resuresq.app",
+    "https://www.resuresq.app",
+    # Keep localhost for your local Ryzen testing
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.ALLOWED_ORIGINS,
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows GET, POST, OPTIONS, etc.
+    allow_headers=["*"],  # Allows all headers
 )
 
 
