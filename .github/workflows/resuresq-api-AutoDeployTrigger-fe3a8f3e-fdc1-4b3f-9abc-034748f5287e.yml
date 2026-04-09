@@ -4,25 +4,26 @@ name: Trigger auto deployment for resuresq-api
 on:
   # Automatically trigger it when detected changes in repo
   push:
-    branches: 
-      [ main ]
+    branches: [main]
     paths:
-    - '**'
-    - '.github/workflows/resuresq-api-AutoDeployTrigger-fe3a8f3e-fdc1-4b3f-9abc-034748f5287e.yml'
+      - "**"
+      - ".github/workflows/resuresq-api-AutoDeployTrigger-fe3a8f3e-fdc1-4b3f-9abc-034748f5287e.yml"
 
-  # Allow manual trigger 
-  workflow_dispatch:      
+  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions: 
+    permissions:
       id-token: write #This is required for requesting the OIDC JWT Token
       contents: read #Required when GH token is used to authenticate with private repo
 
     steps:
       - name: Checkout to the branch
         uses: actions/checkout@v2
+        with:
+          lfs: true
 
       - name: Azure Login
         uses: azure/login@v2
@@ -45,5 +46,3 @@ jobs:
           imageToBuild: resuresqreg.azurecr.io/resuresq-api:${{ github.sha }}
           _buildArgumentsKey_: |
             _buildArgumentsValues_
-
-
