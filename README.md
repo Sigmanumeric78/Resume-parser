@@ -170,10 +170,4 @@ Continuous iteration is critical. The following features are actively in develop
 - [ ] **Professional Footer & Explainer Page**: Adding a dedicated technical breakdown page and a polished footer to showcase the architecture to technical recruiters and engineers.
 
 ---
-
-## 🔒 Security & Environment Configuration
-
-*Note: All sensitive environment variables, ACR credentials, and API keys are injected at runtime via GitHub Secrets (`${SECRET_NAME}`). No credentials, raw PDFs, or `.env` files are tracked in this repository.*
-
----
 *Engineered by a Top-Tier Enthusiast*
