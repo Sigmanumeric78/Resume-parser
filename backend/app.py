@@ -1,7 +1,11 @@
+import gc
 import json
 import logging
 import os
+import uuid
 import warnings
+
+from dotenv import load_dotenv
 
 # Suppress the multiprocessing semaphore warning
 warnings.filterwarnings("ignore", category=UserWarning, module="resource_tracker")
@@ -13,19 +17,27 @@ import traceback
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
+import fitz
 import httpx
-from dotenv import load_dotenv
+import psutil
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sentence_transformers import SentenceTransformer
+from supabase import Client, create_client
+
+# LOAD_ENV_FROM_ROOT_OR_LOCAL
+load_dotenv()
+
+# CONSTANTS_FROM_ENV
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 from backend.config import config
 from backend.rag_engine import DocumentProcessor, RAGEngine
 from backend.services.search_service import search_service
-
-load_dotenv()
 
 PORT = int(os.environ.get("PORT", 8000))
 
@@ -41,6 +53,7 @@ os.environ["CHROMA_TELEMETRY"] = "False"
 adapt_resume = None
 refine_chunks = None
 build_chroma_db = None
+get_collection = None
 embed_chunks = None
 parse_resume = None
 _INGESTION_AVAILABLE = False
@@ -48,7 +61,7 @@ _INGESTION_AVAILABLE = False
 try:
     from ingestion.adapters.parser_adapter import adapt_resume
     from ingestion.chunking.section_chunker import refine_chunks
-    from ingestion.db.chroma_builder import build_chroma_db
+    from ingestion.db.chroma_builder import build_chroma_db, get_collection
     from ingestion.embedding.embedder import embed_chunks
     from parser.resume_parser import parse_resume
 
@@ -112,6 +125,9 @@ processed_documents: Dict[str, Any] = {
     "resume_text": None,
     "job_description_text": None,
 }
+
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB SAFETY_CAP
+_supabase_client: Optional[Client] = None
 
 
 class ChatRequest(BaseModel):
@@ -207,6 +223,104 @@ def _run_ingestion_pipeline(resume_path: str, candidate_id: str) -> None:
         build_chroma_db(embedded)
     except Exception as exc:
         print(f"WARNING: Ingestion pipeline failed: {exc}")
+
+
+def _get_supabase_client() -> Client:
+    global _supabase_client
+    if _supabase_client is not None:
+        return _supabase_client
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase credentials not configured.",
+        )
+    _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _supabase_client
+
+
+def log_mem(stage: str) -> None:
+    process = psutil.Process(os.getpid())
+    mem_mb = process.memory_info().rss / 1024 / 1024
+    print(f"[MEM_CHECK] {stage}: {mem_mb:.2f} MB")
+
+
+@app.post("/upload-resume")
+async def handle_dynamic_ingestion(file: UploadFile = File(...)):
+    log_mem("START_UPLOAD")
+    content = await file.read()
+    file_size = len(content)
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="File too large for 1GB RAM constraint.",
+        )
+
+    embeddings = None
+    chunks = None
+    public_url = None
+    doc = None
+    model = None
+    full_text = ""
+
+    try:
+        supabase = _get_supabase_client()
+        resume_id = str(uuid.uuid4())
+        filename = f"{resume_id}.pdf"
+
+        supabase.storage.from_("resumes").upload(
+            path=filename,
+            file=content,
+            file_options={"content-type": "application/pdf"},
+        )
+        public_url = supabase.storage.from_("resumes").get_public_url(filename)
+
+        doc = fitz.open(stream=content, filetype="pdf")
+        for page in doc:
+            full_text += page.get_text()
+        doc.close()
+
+        chunks = [full_text[i : i + 1000] for i in range(0, len(full_text), 800)]
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        embeddings = model.encode(chunks).tolist()
+
+        collection = get_collection() if _INGESTION_AVAILABLE else None
+        if collection is None:
+            raise HTTPException(status_code=503, detail="ChromaDB unavailable.")
+
+        ids = [f"{resume_id}_{i}" for i in range(len(chunks))]
+        metadatas: List[Dict[str, Any]] = [
+            {
+                "url": str(public_url),
+                "source": str(file.filename or filename),
+                "id": str(resume_id),
+            }
+            for _ in chunks
+        ]
+
+        collection.add(
+            ids=ids,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            documents=chunks,
+        )
+
+    finally:
+        log_mem("PRE_GC")
+        del content
+        if embeddings is not None:
+            del embeddings
+        if chunks is not None:
+            del chunks
+        if full_text:
+            del full_text
+        if model is not None:
+            del model
+        if doc is not None:
+            del doc
+        gc.collect()
+        log_mem("POST_GC")
+
+    return {"status": "indexed", "resume_url": public_url}
 
 
 def _extract_structured_resume(resume_text: str) -> Dict[str, Any]:

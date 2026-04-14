@@ -11,6 +11,7 @@ dist-ssr/
 .env
 .env.*
 !.env.example
+backend/.env
 
 # --- Backend (Python) ---
 __pycache__/
@@ -28,3 +29,6 @@ data/raw_resumes_clean/
 
 # --- Docker ---
 .dockerignore
+
+# --- Docs (Internal) ---
+docs/system_overview.md

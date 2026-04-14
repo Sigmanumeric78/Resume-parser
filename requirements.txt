@@ -6,5 +6,8 @@ sentence-transformers
 pdfplumber
 pydantic
 httpx
-python-dotenv
+python-dotenv==1.0.1
+psutil
+supabase==2.4.0
 python-multipart
+pymupdf

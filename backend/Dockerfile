@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
@@ -18,6 +18,7 @@ COPY parser /app/parser
 COPY data /app/data
 
 ENV PYTHONUNBUFFERED=1
+ENV OMP_NUM_THREADS=1
 
 EXPOSE 8000
 CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
