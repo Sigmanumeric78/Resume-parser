@@ -17,6 +17,10 @@ export default function ResumeDrawer({
     };
   }, [isOpen]);
 
+  const pdfUrl = candidate.resume_url
+    ? candidate.resume_url
+    : `${import.meta.env.VITE_API_URL}/resume/${candidate.candidate_id}`;
+
   return (
     <AnimatePresence>
       {isOpen && candidate && (
@@ -70,18 +74,16 @@ export default function ResumeDrawer({
                 </div>
               </div>
 
-              {candidate.resume_url && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-widest text-gold-dark dark:text-gold">
-                    Original Document
-                  </h3>
-                  <iframe
-                    src={candidate.resume_url}
-                    className="w-full h-[600px] rounded-xl border border-zinc-200 dark:border-zinc-800"
-                    title="Resume PDF"
-                  />
-                </div>
-              )}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-gold-dark dark:text-gold">
+                  Original Document
+                </h3>
+                <iframe
+                  src={pdfUrl}
+                  className="w-full h-[600px] rounded-xl border border-zinc-200 dark:border-zinc-800"
+                  title="Resume PDF"
+                />
+              </div>
 
               {candidate.skills && candidate.skills.length > 0 && (
                 <div className="space-y-4">
