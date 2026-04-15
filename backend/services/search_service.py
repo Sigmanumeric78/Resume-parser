@@ -27,6 +27,7 @@ class SearchResult:
     skills: List[str]
     highlights: List[str]
     evidence: List[Evidence]
+    resume_url: str
 
 
 def _tokenize(text: str) -> List[str]:
@@ -258,6 +259,7 @@ class SearchService:
             skills = _normalize_skills(meta.get("skills"))
             evidence = evidence_map.get(cand_id, [])
             highlights = _select_highlights(query_tokens, evidence, max_items=3)
+            url = _safe_str(meta.get("url"))
 
             output.append(
                 SearchResult(
@@ -267,6 +269,7 @@ class SearchService:
                     skills=skills,
                     highlights=highlights,
                     evidence=evidence,
+                    resume_url=url,
                 )
             )
 

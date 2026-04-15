@@ -159,6 +159,7 @@ class EvidenceResponse(BaseModel):
 class SearchResultResponse(BaseModel):
     candidate_id: str
     display_name: str
+    resume_url: Optional[str] = None
     score: float
     skills: List[str]
     highlights: List[str]
@@ -283,12 +284,15 @@ async def handle_dynamic_ingestion(file: UploadFile = File(...)):
         model = SentenceTransformer("all-MiniLM-L6-v2")
         embeddings = model.encode(chunks).tolist()
 
-        collection = get_collection() if _INGESTION_AVAILABLE else None
+        if get_collection is None:
+            raise HTTPException(status_code=503, detail="ChromaDB unavailable.")
+
+        collection = get_collection()
         if collection is None:
             raise HTTPException(status_code=503, detail="ChromaDB unavailable.")
 
         ids = [f"{resume_id}_{i}" for i in range(len(chunks))]
-        metadatas: List[Dict[str, Any]] = [
+        metadatas: List[Dict[str, str | int | float | bool]] = [
             {
                 "url": str(public_url),
                 "source": str(file.filename or filename),
@@ -579,6 +583,7 @@ def search_candidates(request: SearchRequest):
         for item in results_raw[:top_n]:
             candidate_id = _get(item, "candidate_id", "")
             display_name = _get(item, "display_name", "")
+            resume_url = _get(item, "resume_url", "")
             match_score = _get(item, "match_score", None)
             if match_score is None:
                 match_score = _get(item, "score", 0)
@@ -600,6 +605,7 @@ def search_candidates(request: SearchRequest):
                 {
                     "candidate_id": candidate_id or "",
                     "display_name": display_name or "",
+                    "resume_url": resume_url or "",
                     "score": score,
                     "skills": skills,
                     "highlights": highlights,
