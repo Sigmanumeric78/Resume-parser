@@ -12,18 +12,19 @@ export default function CandidateCard({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Extract necessary fields from candidate object
-  // Assuming candidate might have these properties based on typical ATS data
   const {
     display_name = "Unknown Candidate",
-    match_score = 0,
+    score,
+    match_score,
     skills = [],
     highlights = [],
-    role = "Candidate",
+    role = "Professional",
   } = candidate;
 
-  // Format score as percentage
-  const scorePercentage = Math.round(match_score * 100);
+  // Use 'score' (new backend format) or fallback to 'match_score', default 0.
+  // Do NOT multiply by 100 as the backend now returns an absolute 0-100 float.
+  const rawScore = score ?? match_score ?? 0;
+  const scorePercentage = Math.round(rawScore);
 
   return (
     <motion.div
@@ -38,7 +39,6 @@ export default function CandidateCard({
       transition={{ duration: 0.2, delay: index * 0.05 }}
       className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all overflow-hidden"
     >
-      {/* Card Header (Always Visible) */}
       <div
         className="p-6 cursor-pointer flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -53,7 +53,6 @@ export default function CandidateCard({
             </span>
           </div>
 
-          {/* Top Skills Pills */}
           <div className="flex flex-wrap gap-2 mt-3">
             {skills.slice(0, 4).map((skill, idx) => (
               <span
@@ -71,7 +70,6 @@ export default function CandidateCard({
           </div>
         </div>
 
-        {/* Score & Actions */}
         <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end mt-4 sm:mt-0 pt-4 sm:pt-0 border-t border-zinc-100 dark:border-zinc-800/50 sm:border-0">
           <ScoreGauge score={scorePercentage} size={48} strokeWidth={4} />
           <button
@@ -83,7 +81,6 @@ export default function CandidateCard({
         </div>
       </div>
 
-      {/* Expanded Evidence Section */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
