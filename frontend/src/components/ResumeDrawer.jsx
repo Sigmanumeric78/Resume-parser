@@ -17,9 +17,11 @@ export default function ResumeDrawer({
     };
   }, [isOpen]);
 
-  const pdfUrl = candidate.resume_url
+  const pdfUrl = candidate?.resume_url
     ? candidate.resume_url
-    : `${import.meta.env.VITE_API_URL}/resume/${candidate.candidate_id}`;
+    : candidate
+      ? `${import.meta.env.VITE_API_URL}/resume/${candidate.candidate_id}`
+      : "";
 
   return (
     <AnimatePresence>
