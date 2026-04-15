@@ -4,19 +4,18 @@ name: Trigger auto deployment for resuresq-ui
 on:
   # Automatically trigger it when detected changes in repo
   push:
-    branches: 
-      [ main ]
+    branches: [main]
     paths:
-    - '**'
-    - '.github/workflows/resuresq-ui-AutoDeployTrigger-edb14163-32cc-4a56-9ad4-66ec493975cd.yml'
+      - "frontend/**"
+      - ".github/workflows/resuresq-ui-AutoDeployTrigger-edb14163-32cc-4a56-9ad4-66ec493975cd.yml"
 
-  # Allow manual trigger 
-  workflow_dispatch:      
+  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions: 
+    permissions:
       id-token: write #This is required for requesting the OIDC JWT Token
       contents: read #Required when GH token is used to authenticate with private repo
 
@@ -34,16 +33,12 @@ jobs:
       - name: Build and push container image to registry
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
+          appSourcePath: ${{ github.workspace }}/frontend
+          dockerfilePath: Dockerfile
           registryUrl: resuresqreg.azurecr.io
           registryUsername: ${{ secrets.RESURESQUI_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.RESURESQUI_REGISTRY_PASSWORD }}
           containerAppName: resuresq-ui
           resourceGroup: resumeresq-rg
           imageToBuild: resuresqreg.azurecr.io/resuresq-ui:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
-
-
+          buildArguments: VITE_API_URL=https://api.resuresq.app
