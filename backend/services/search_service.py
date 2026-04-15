@@ -1,5 +1,5 @@
 """
-Search service implementing Reciprocal Rank Fusion (RRF) over ChromaDB and BM25.
+Search service implementing absolute scoring over ChromaDB and BM25.
 """
 
 from __future__ import annotations
@@ -167,25 +167,28 @@ class SearchService:
         metas_raw = result.get("metadatas")
         metas = metas_raw[0] if metas_raw and len(metas_raw) > 0 else []
 
+        dists_raw = result.get("distances")
+        dists = dists_raw[0] if dists_raw and len(dists_raw) > 0 else []
+
         results: List[Dict[str, Any]] = []
         for idx, meta in enumerate(metas):
             if not isinstance(meta, dict):
                 continue
             candidate_id = meta.get("candidate_id", "")
             text = docs[idx] if idx < len(docs) else ""
+            distance = dists[idx] if idx < len(dists) else 999.0
             if candidate_id:
                 results.append(
                     {
                         "candidate_id": candidate_id,
                         "text": text,
                         "metadata": meta,
+                        "distance": float(distance),
                     }
                 )
         return results
 
-    def search(
-        self, query: str, top_n: int = 20, rrf_k: int = 60
-    ) -> List[SearchResult]:
+    def search(self, query: str, top_n: int = 20) -> List[SearchResult]:
         self._ensure_loaded()
         query = (query or "").strip()
         if not query:
@@ -196,14 +199,18 @@ class SearchService:
         semantic_results = self._search_chroma(query, top_k=50)
         bm25_results = self._search_bm25(query, top_k=50)
 
-        rrf_scores: Dict[str, float] = {}
+        candidate_stats: Dict[str, Dict[str, float]] = {}
         best_meta: Dict[str, Dict[str, Any]] = {}
         evidence_map: Dict[str, List[Evidence]] = {}
 
-        # RRF from semantic results
-        for rank, item in enumerate(semantic_results, start=1):
+        for item in semantic_results:
             cand_id = item["candidate_id"]
-            rrf_scores[cand_id] = rrf_scores.get(cand_id, 0.0) + 1.0 / (rrf_k + rank)
+            stats = candidate_stats.setdefault(
+                cand_id, {"min_distance": 999.0, "max_bm25": 0.0}
+            )
+            distance = float(item.get("distance", 999.0))
+            stats["min_distance"] = min(stats.get("min_distance", 999.0), distance)
+
             meta = item.get("metadata") or {}
             if cand_id not in best_meta:
                 best_meta[cand_id] = meta
@@ -214,22 +221,36 @@ class SearchService:
                     Evidence(text=text, section=section, source="semantic")
                 )
 
-        # RRF from BM25 results
-        for rank, item in enumerate(bm25_results, start=1):
+        for item in bm25_results:
             cand_id = item["candidate_id"]
-            rrf_scores[cand_id] = rrf_scores.get(cand_id, 0.0) + 1.0 / (rrf_k + rank)
+            stats = candidate_stats.setdefault(
+                cand_id, {"min_distance": 999.0, "max_bm25": 0.0}
+            )
+            score = float(item.get("score", 0.0))
+            stats["max_bm25"] = max(stats.get("max_bm25", 0.0), score)
+
             text = _safe_str(item.get("text"))
             if text:
                 evidence_map.setdefault(cand_id, []).append(
                     Evidence(text=text, section="", source="bm25")
                 )
 
-        # Build results
-        combined = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
-        output: List[SearchResult] = []
-        max_score = max(rrf_scores.values()) if rrf_scores else 0.0
+        scored_candidates: List[tuple[str, float]] = []
+        for cand_id, stats in candidate_stats.items():
+            min_distance = float(stats.get("min_distance", 999.0))
+            max_bm25 = float(stats.get("max_bm25", 0.0))
 
-        for cand_id, score in combined[: max(1, top_n)]:
+            semantic_score = max(0.0, 100.0 - (min_distance * 50.0))
+            keyword_score = min(100.0, max_bm25 * 5.0)
+            blend = (semantic_score * 0.7) + (keyword_score * 0.3)
+            final_score = min(99.0, blend * 1.15)
+
+            scored_candidates.append((cand_id, final_score))
+
+        scored_candidates.sort(key=lambda x: x[1], reverse=True)
+
+        output: List[SearchResult] = []
+        for cand_id, final_score in scored_candidates[: max(1, top_n)]:
             meta = best_meta.get(cand_id, {})
             display_name = _safe_str(meta.get("name")) or _safe_str(
                 meta.get("candidate_name")
@@ -238,13 +259,11 @@ class SearchService:
             evidence = evidence_map.get(cand_id, [])
             highlights = _select_highlights(query_tokens, evidence, max_items=3)
 
-            match_score = (score / max_score * 100.0) if max_score > 0 else 0.0
-
             output.append(
                 SearchResult(
                     candidate_id=cand_id,
                     display_name=display_name,
-                    match_score=match_score,
+                    match_score=round(final_score, 1),
                     skills=skills,
                     highlights=highlights,
                     evidence=evidence,
