@@ -583,7 +583,18 @@ def search_candidates(request: SearchRequest):
         for item in results_raw[:top_n]:
             candidate_id = _get(item, "candidate_id", "")
             display_name = _get(item, "display_name", "")
+
+            # Robust URL extraction: check standard keys and nested metadata
             resume_url = _get(item, "resume_url", "")
+            if not resume_url:
+                resume_url = _get(item, "url", "")
+            if not resume_url:
+                metadata = _get(item, "metadata", {})
+                if isinstance(metadata, dict):
+                    resume_url = metadata.get("url", "") or metadata.get(
+                        "resume_url", ""
+                    )
+
             match_score = _get(item, "match_score", None)
             if match_score is None:
                 match_score = _get(item, "score", 0)
