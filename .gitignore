@@ -32,3 +32,4 @@ data/raw_resumes_clean/
 
 # --- Docs (Internal) ---
 docs/system_overview.md
+data/chroma_db/
