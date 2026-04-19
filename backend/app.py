@@ -651,7 +651,18 @@ def api_search_candidates(request: SearchRequest):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    try:
+        results = cached_search("java", 1)
+        if results:
+            item = results[0]
+            # Extract raw dictionary regardless of object type
+            data = (
+                item if isinstance(item, dict) else getattr(item, "__dict__", str(item))
+            )
+            return {"status": "ok", "debug_data": data}
+        return {"status": "ok", "message": "No data found for debug"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 
 @app.get("/resume/{candidate_id}")
