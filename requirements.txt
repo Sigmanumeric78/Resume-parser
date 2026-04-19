@@ -11,3 +11,4 @@ psutil
 supabase==2.4.0
 python-multipart
 pymupdf
+supabase>=2.3.0
