@@ -4,11 +4,13 @@ Search service implementing absolute scoring over ChromaDB and BM25.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
+
+from supabase import Client, create_client
 
 from ingestion.bm25.bm25_builder import load_bm25_index
-from ingestion.db.chroma_builder import get_collection
 from ingestion.embedding.embedder import Embedder
 
 
@@ -85,14 +87,19 @@ class SearchService:
         self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     ) -> None:
         self._bm25_data: Optional[Dict[str, Any]] = None
-        self._collection = None
         self._embedder: Optional[Embedder] = None
         self._model_name = model_name
         self._loaded = False
 
+        # Initialize Supabase
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        self.supabase: Optional[Client] = None
+        if supabase_url and supabase_key:
+            self.supabase = create_client(supabase_url, supabase_key)
+
     def load_indices(self) -> None:
         self._bm25_data = load_bm25_index()
-        self._collection = get_collection()
         try:
             self._embedder = Embedder(model_name=self._model_name)
         except Exception:
@@ -143,41 +150,55 @@ class SearchService:
         return results
 
     def _search_chroma(self, query: str, top_k: int = 50) -> List[Dict[str, Any]]:
-        if self._collection is None or self._embedder is None:
+        if self.supabase is None or self._embedder is None:
             return []
 
         query_embeddings = self._embedder._embed_texts([query])
         if not query_embeddings:
             return []
 
+        query_embedding = query_embeddings[0]
+
         try:
-            result = self._collection.query(
-                query_embeddings=cast(Any, query_embeddings),
-                n_results=top_k,
-                include=cast(Any, ["documents", "metadatas", "distances"]),
-            )
-        except Exception:
+            # Call the Supabase pgvector RPC function
+            response = self.supabase.rpc(
+                "match_resume_chunks",
+                {
+                    "query_embedding": query_embedding,
+                    "match_threshold": 0.0,
+                    "match_count": top_k,
+                },
+            ).execute()
+            data = response.data
+        except Exception as e:
+            print(f"Supabase RPC error: {e}")
             return []
 
-        if result is None or not isinstance(result, dict):
+        if not data or not isinstance(data, list):
             return []
-        # Use explicit unpacking to satisfy Pyright
-        docs_raw = result.get("documents")
-        docs = docs_raw[0] if docs_raw and len(docs_raw) > 0 else []
-
-        metas_raw = result.get("metadatas")
-        metas = metas_raw[0] if metas_raw and len(metas_raw) > 0 else []
-
-        dists_raw = result.get("distances")
-        dists = dists_raw[0] if dists_raw and len(dists_raw) > 0 else []
 
         results: List[Dict[str, Any]] = []
-        for idx, meta in enumerate(metas):
-            if not isinstance(meta, dict):
+        for row in data:
+            # 1. Reassure Pyright that this is a dictionary
+            if not isinstance(row, dict):
                 continue
-            candidate_id = meta.get("candidate_id", "")
-            text = docs[idx] if idx < len(docs) else ""
-            distance = dists[idx] if idx < len(dists) else 999.0
+
+            candidate_id = row.get("candidate_id", "")
+            text = row.get("text", "")
+            meta = row.get("metadata", {})
+
+            # 2. Strict type guard for Pyright before casting to float
+            raw_sim = row.get("similarity", 0.0)
+            similarity = 0.0
+            if isinstance(raw_sim, (int, float, str)):
+                try:
+                    similarity = float(raw_sim)
+                except ValueError:
+                    similarity = 0.0
+
+            # Convert similarity to distance (1 - similarity)
+            distance = 1.0 - similarity
+
             if candidate_id:
                 results.append(
                     {
