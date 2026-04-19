@@ -697,6 +697,20 @@ async def serve_spa(full_path: str):
     return {"message": "Resume Screening API is running", "status": "healthy"}
 
 
+@app.get("/api/debug/chroma")
+def debug_chroma():
+    """Fetches exactly one chunk from ChromaDB to inspect its metadata keys"""
+    try:
+        results = cached_search("java", 1)
+        if not results:
+            return {"message": "No results found in ChromaDB"}
+
+        # Return the raw, unformatted item so we can see the exact metadata
+        return {"raw_item_data": results[0]}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
 
