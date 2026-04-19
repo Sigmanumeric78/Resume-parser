@@ -388,14 +388,6 @@ async def api_health_check():
     return {"message": "Resume Screening API is running", "status": "healthy"}
 
 
-@app.get("/{full_path:path}", include_in_schema=False)
-async def serve_spa(full_path: str):
-    index = os.path.join(_static_dir, "index.html")
-    if os.path.isfile(index):
-        return FileResponse(index)
-    return {"message": "Resume Screening API is running", "status": "healthy"}
-
-
 @app.post("/upload")
 async def upload_documents(
     resume: Optional[UploadFile] = File(None),
@@ -584,16 +576,27 @@ def search_candidates(request: SearchRequest):
             candidate_id = _get(item, "candidate_id", "")
             display_name = _get(item, "display_name", "")
 
-            # Robust URL extraction: check standard keys and nested metadata
             resume_url = _get(item, "resume_url", "")
             if not resume_url:
                 resume_url = _get(item, "url", "")
+
             if not resume_url:
                 metadata = _get(item, "metadata", {})
                 if isinstance(metadata, dict):
+                    # 1. Try to get the raw URL
                     resume_url = metadata.get("url", "") or metadata.get(
                         "resume_url", ""
                     )
+
+                    # 2. If no raw URL, check if the ingestion script saved the UUID in 'source' or 'id'
+                    if not resume_url and SUPABASE_URL:
+                        file_id = metadata.get("id", "") or metadata.get("source", "")
+                        # Clean up the file_id just in case it's a full path
+                        if file_id:
+                            file_name = file_id.split("/")[-1]
+                            if not file_name.endswith(".pdf"):
+                                file_name = f"{file_name}.pdf"
+                            resume_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/resumes/{file_name}"
 
             match_score = _get(item, "match_score", None)
             if match_score is None:
@@ -684,6 +687,14 @@ async def clear_documents():
     if rag_engine is not None:
         rag_engine.clear_vector_store()
     return {"message": "All documents cleared successfully"}
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str):
+    index = os.path.join(_static_dir, "index.html")
+    if os.path.isfile(index):
+        return FileResponse(index)
+    return {"message": "Resume Screening API is running", "status": "healthy"}
 
 
 if __name__ == "__main__":
