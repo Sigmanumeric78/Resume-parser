@@ -168,6 +168,3 @@ Continuous iteration is critical. The following features are actively in develop
 - [ ] **High-Precision Match Score Overhaul**: Recalibrating the RRF and Cosine normalization logic to completely eliminate the "0% match" anomaly on partial matches.
 - [ ] **Luxury UI Enhancements**: Pushing the frontend aesthetic further with deep dark-gold typography, textured white-paper backgrounds, and running gradient border animations on candidate cards.
 - [ ] **Professional Footer & Explainer Page**: Adding a dedicated technical breakdown page and a polished footer to showcase the architecture to technical recruiters and engineers.
-
----
-*Engineered by a Top-Tier Enthusiast*
