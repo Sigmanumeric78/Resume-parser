@@ -576,6 +576,13 @@ def search_candidates(request: SearchRequest):
             candidate_id = _get(item, "candidate_id", "")
             display_name = _get(item, "display_name", "")
 
+            # --- DEBUG LOGGING ---
+            raw_metadata = _get(item, "metadata", {})
+            logger.info(
+                f"[METADATA_DEBUG] Candidate: {candidate_id} | Metadata: {raw_metadata}"
+            )
+            # ---------------------
+
             resume_url = _get(item, "resume_url", "")
             if not resume_url:
                 resume_url = _get(item, "url", "")
