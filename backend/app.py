@@ -605,6 +605,10 @@ def search_candidates(request: SearchRequest):
                                 file_name = f"{file_name}.pdf"
                             resume_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/resumes/{file_name}"
 
+            # 3. ULTIMATE FALLBACK: The bucket files are predictably named candidate_id.pdf!
+            if not resume_url and candidate_id and SUPABASE_URL:
+                resume_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/resumes/{candidate_id}.pdf"
+
             match_score = _get(item, "match_score", None)
             if match_score is None:
                 match_score = _get(item, "score", 0)
