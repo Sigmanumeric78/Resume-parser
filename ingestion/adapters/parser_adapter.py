@@ -92,6 +92,7 @@ def create_chunk(
             "section": section,
             "skills": metadata.get("skills", []),
             "name": metadata.get("name", ""),
+            "url": metadata.get("url", ""),
         },
     }
 
@@ -99,7 +100,7 @@ def create_chunk(
 
 
 def adapt_parsed_resume(
-    parsed: Dict[str, Any], candidate_id: str
+    parsed: Dict[str, Any], candidate_id: str, url: str = ""
 ) -> List[Dict[str, Any]]:
     """
     Convert parsed resume output into structured chunk objects.
@@ -143,7 +144,7 @@ def adapt_parsed_resume(
     skills = parsed.get("skills", [])
 
     # Base metadata
-    base_metadata = {"name": name, "skills": skills}
+    base_metadata = {"name": name, "skills": skills, "url": url}
 
     # Process SKILLS section
     if skills and isinstance(skills, list) and len(skills) > 0:
@@ -206,11 +207,13 @@ def adapt_parsed_resume(
     return chunks
 
 
-def adapt_resume(parsed: Dict[str, Any], candidate_id: str) -> List[Dict[str, Any]]:
+def adapt_resume(
+    parsed: Dict[str, Any], candidate_id: str, url: str = ""
+) -> List[Dict[str, Any]]:
     """
     Compatibility wrapper for pipeline naming.
     """
-    return adapt_parsed_resume(parsed, candidate_id)
+    return adapt_parsed_resume(parsed, candidate_id, url)
 
 
 def validate_chunks(chunks: List[Dict[str, Any]]) -> bool:

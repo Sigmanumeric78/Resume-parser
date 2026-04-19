@@ -10,6 +10,12 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
+from dotenv import load_dotenv
+from supabase import Client, create_client
+
+# Load environment variables from .env file FIRST
+load_dotenv()
+
 from ingestion.adapters.parser_adapter import adapt_resume
 from ingestion.bm25.bm25_builder import build_bm25_index, load_bm25_index
 from ingestion.chunking.section_chunker import refine_chunks
@@ -22,6 +28,15 @@ DRY_RUN = os.environ.get("DRY_RUN", "0").lower() in ("1", "true", "yes")
 MAX_TOTAL_SECONDS = 3600.0
 MAX_EMBED_SECONDS = 600.0
 MAX_RESUMES = int(os.environ.get("MAX_RESUMES", "650"))
+
+# Initialize Supabase (Ensure these exist in your local .env)
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+supabase: Client | None = None
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+else:
+    print("WARNING: Supabase credentials missing. URLs will be empty.")
 
 
 def _safe_listdir(path: str) -> List[str]:
@@ -89,8 +104,33 @@ def run_pipeline() -> None:
         candidate_id = f"cand_{i:04d}"
 
         try:
+            public_url = ""
+            # --- SUPABASE UPLOAD ---
+            if supabase and not DRY_RUN:
+                try:
+                    file_name = f"{candidate_id}.pdf"
+                    with open(path, "rb") as f:
+                        file_bytes = f.read()
+
+                    # Upload (or overwrite if exists)
+                    supabase.storage.from_("resumes").upload(
+                        path=file_name,
+                        file=file_bytes,
+                        file_options={
+                            "content-type": "application/pdf",
+                            "upsert": "true",
+                        },
+                    )
+                    public_url = supabase.storage.from_("resumes").get_public_url(
+                        file_name
+                    )
+                    print(f"Uploaded {filename} -> {public_url}")
+                except Exception as up_exc:
+                    print(f"WARNING: Supabase upload failed for {filename}: {up_exc}")
+            # -----------------------
+
             parsed = parse_resume(path, use_llm_fallback=False)
-            adapted = adapt_resume(parsed, candidate_id)
+            adapted = adapt_resume(parsed, candidate_id, url=public_url)
             adapted_per_candidate.append((candidate_id, adapted))
             total_chunks_before_refine += len(adapted)
             total_resumes += 1
