@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/requirements.txt /app/requirements.txt
 RUN pip install uv
 RUN uv pip install --system torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN uv pip install --system --no-cache httpx==0.27.2 httpcore==1.0.5 supabase==2.3.0
 RUN uv pip install --system --no-cache -r /app/requirements.txt
 
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"

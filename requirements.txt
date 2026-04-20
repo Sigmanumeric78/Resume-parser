@@ -5,12 +5,7 @@ rank_bm25
 sentence-transformers
 pdfplumber
 pydantic
-httpx
 python-dotenv==1.0.1
 psutil
-supabase==2.4.0
 python-multipart
 pymupdf
-supabase==2.3.0
-httpx==0.27.2
-httpcore==1.0.5
