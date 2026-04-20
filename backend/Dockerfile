@@ -8,11 +8,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt /app/requirements.txt
+
 RUN pip install uv
+
+# Install torch separately to handle the CPU-only requirement first
 RUN uv pip install --system torch torchvision --index-url https://download.pytorch.org/whl/cpu
-RUN uv pip install --system --no-cache httpx==0.27.2 httpcore==1.0.5 supabase==2.3.0
+
+# Install all other requirements in one go without cache to prevent the 'proxy' error
 RUN uv pip install --system --no-cache -r /app/requirements.txt
 
+# Pre-download the model weights
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 COPY backend /app/backend
