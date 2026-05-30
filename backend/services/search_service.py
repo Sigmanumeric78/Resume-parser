@@ -4,6 +4,7 @@ Search service implementing absolute scoring over ChromaDB and BM25.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -12,6 +13,8 @@ from supabase import Client, create_client
 
 from ingestion.bm25.bm25_builder import load_bm25_index
 from ingestion.embedding.embedder import Embedder
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -88,6 +91,7 @@ class SearchService:
     ) -> None:
         self._bm25_data: Optional[Dict[str, Any]] = None
         self._embedder: Optional[Embedder] = None
+        self.model: Optional[Any] = None
         self._model_name = model_name
         self._loaded = False
 
@@ -102,13 +106,65 @@ class SearchService:
         self._bm25_data = load_bm25_index()
         try:
             self._embedder = Embedder(model_name=self._model_name)
+            self.model = self._embedder._model
         except Exception:
             self._embedder = None
+            self.model = None
         self._loaded = True
 
     def _ensure_loaded(self) -> None:
         if not self._loaded:
             self.load_indices()
+
+    async def index_resume(
+        self,
+        chunks: list[str],
+        candidate_id: str,
+        filename: str,
+    ) -> None:
+        """
+        Embed resume chunks and insert them into Supabase.
+        """
+        try:
+            if not chunks:
+                return
+
+            self._ensure_loaded()
+            if self.model is None:
+                raise RuntimeError("SentenceTransformer model is not loaded.")
+            if self.supabase is None:
+                raise RuntimeError("Supabase client is not configured.")
+
+            embeddings = self.model.encode(
+                chunks,
+                batch_size=32,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+            embedding_lists = (
+                embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings
+            )
+
+            records = []
+            for index, (chunk, embedding) in enumerate(zip(chunks, embedding_lists)):
+                if hasattr(embedding, "tolist"):
+                    embedding = embedding.tolist()
+                records.append(
+                    {
+                        "content": chunk,
+                        "embedding": [float(value) for value in embedding],
+                        "metadata": {
+                            "candidate_id": candidate_id,
+                            "filename": filename,
+                            "chunk_index": index,
+                        },
+                    }
+                )
+
+            self.supabase.table("resume_chunks").insert(records).execute()
+        except Exception:
+            logger.exception("Failed to index resume %s", filename)
+            raise
 
     def _search_bm25(self, query: str, top_k: int = 50) -> List[Dict[str, Any]]:
         if not self._bm25_data:

@@ -1,4 +1,5 @@
 import gc
+import io
 import json
 import logging
 import os
@@ -197,6 +198,22 @@ def _derive_candidate_id(filename: Optional[str]) -> str:
         idx = int(match.group(1))
         return f"cand_{idx:04d}"
     return "cand_0000"
+
+
+def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> List[str]:
+    if not text:
+        return []
+    if chunk_size <= 0:
+        return [text]
+    step = max(1, chunk_size - overlap)
+    chunks = []
+    for start in range(0, len(text), step):
+        chunk = text[start : start + chunk_size]
+        if chunk:
+            chunks.append(chunk)
+        if start + chunk_size >= len(text):
+            break
+    return chunks
 
 
 def _run_ingestion_pipeline(resume_path: str, candidate_id: str) -> None:
@@ -658,6 +675,43 @@ def search_candidates(request: SearchRequest):
 @app.post("/api/search", response_model=SearchResponse)
 def api_search_candidates(request: SearchRequest):
     return search_candidates(request)
+
+
+@app.post("/api/ingest")
+async def ingest_resume(
+    file: UploadFile = File(...),
+    candidate_id: Optional[str] = Form(None),
+):
+    try:
+        filename = file.filename or ""
+        if not filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Uploaded file must be a PDF.")
+
+        content = await file.read()
+        text_parts = []
+        import pdfplumber
+
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text() or ""
+                if page_text:
+                    text_parts.append(page_text)
+
+        extracted_text = "\n".join(text_parts)
+        chunks = _chunk_text(extracted_text, chunk_size=500, overlap=100)
+        resolved_candidate_id = candidate_id or _derive_candidate_id(filename)
+
+        await search_service.index_resume(chunks, resolved_candidate_id, filename)
+
+        return {
+            "status": "success",
+            "chunks_processed": len(chunks),
+            "filename": filename,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/health")

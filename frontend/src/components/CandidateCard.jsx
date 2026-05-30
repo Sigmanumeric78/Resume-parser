@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import ScoreGauge from "./ScoreGauge";
@@ -7,7 +8,6 @@ import { HighlightedText } from "../utils/highlighter";
 export default function CandidateCard({
   candidate,
   onClickViewResume,
-  index = 0,
   query = "",
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -27,18 +27,7 @@ export default function CandidateCard({
   const scorePercentage = Math.round(rawScore);
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      whileHover={{
-        scale: 1.02,
-        boxShadow: "0 0 20px rgba(212, 175, 55, 0.3)",
-      }}
-      transition={{ duration: 0.2, delay: index * 0.05 }}
-      className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all overflow-hidden"
-    >
+    <div className="candidate-result-card bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all overflow-hidden">
       <div
         className="p-6 cursor-pointer flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -134,6 +123,6 @@ export default function CandidateCard({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

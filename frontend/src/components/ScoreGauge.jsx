@@ -1,4 +1,5 @@
 import React from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ScoreGauge({ score = 0, size = 56, strokeWidth = 5 }) {

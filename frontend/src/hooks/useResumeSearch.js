@@ -7,6 +7,7 @@ export function useResumeSearch() {
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     // Clear results if query is empty
@@ -50,7 +51,11 @@ export function useResumeSearch() {
 
     // Cleanup the timer on consecutive key presses (debounce logic)
     return () => clearTimeout(debounceTimer);
-  }, [query, topN]);
+  }, [query, topN, refreshKey]);
+
+  const refreshResults = () => {
+    setRefreshKey((value) => value + 1);
+  };
 
   return {
     query,
@@ -60,5 +65,6 @@ export function useResumeSearch() {
     error,
     topN,
     setTopN,
+    refreshResults,
   };
 }

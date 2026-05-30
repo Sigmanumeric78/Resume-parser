@@ -1,8 +1,34 @@
-import React from "react";
+import React, { useMemo } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { SearchX, Sparkles } from "lucide-react";
 
-export default function EmptyState({ query, isSearching }) {
+const SUGGESTION_POOL = [
+  "Senior React Developer",
+  "Python Machine Learning",
+  "AWS Infrastructure",
+  "Product Manager B2B",
+  "Data Engineer Spark",
+  "Frontend TypeScript Lead",
+  "DevOps Kubernetes",
+  "Cybersecurity Analyst",
+  "Cloud Solutions Architect",
+  "Backend FastAPI Engineer",
+  "Mobile React Native",
+  "AI Research Engineer",
+  "Salesforce Administrator",
+  "UX Product Designer",
+  "Java Spring Boot",
+  "Healthcare Data Analyst",
+];
+
+function getRandomSuggestions(count = 4) {
+  return [...SUGGESTION_POOL].sort(() => Math.random() - 0.5).slice(0, count);
+}
+
+export default function EmptyState({ query, isSearching, onSelectSuggestion }) {
+  const suggestions = useMemo(() => getRandomSuggestions(), []);
+
   if (isSearching) return null;
 
   const isInitial = !query || query.trim().length === 0;
@@ -48,14 +74,11 @@ export default function EmptyState({ query, isSearching }) {
             Suggested Searches
           </p>
           <div className="flex flex-wrap justify-center gap-3 max-w-xl mx-auto">
-            {[
-              "Senior React Developer",
-              "Python Machine Learning",
-              "AWS Infrastructure",
-              "Product Manager B2B",
-            ].map((suggestion, idx) => (
+            {suggestions.map((suggestion, idx) => (
               <motion.button
                 key={idx}
+                type="button"
+                onClick={() => onSelectSuggestion?.(suggestion)}
                 whileHover={{ scale: 1.05 }}
                 className="px-5 py-2.5 text-sm font-medium rounded-full bg-white text-zinc-900 border-2 border-zinc-200 shadow-sm hover:border-gold hover:text-gold dark:bg-zinc-900 dark:text-stone-200 dark:border-zinc-800 dark:hover:border-gold-light transition-all cursor-pointer raised-hover"
               >
